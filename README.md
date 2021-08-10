@@ -857,3 +857,589 @@ const Information = () => (
 export default Information;
 
 ```
+
+## Intregación de React Hooks en Platzi Conf Merch
+
+### Creando nuestro primer custom hook
+
+Usaremos una API de React. Creamos la carpeta 'context' dentro de 'src' y dentro de ella creamos el archivo AppContext.js:
+
+```js
+import React from 'react';
+
+const AppContext = React.createContext({});
+
+export default AppContext;
+```
+
+Creamos la carpeta 'hooks' dentro de 'src' y dentro de ella creamos el archivo useInitialState.js:
+
+```js
+import { useState } from "react";
+import initialState from '../initialState';
+
+const useInitialState = () => {
+  const [state, setState] = useState(initialState);
+
+  const addToCart = payload => {
+    setState({
+      ...state,
+      cart: [...state.cart, payload]
+    });
+  };
+
+  const removeFromCart = payload => {
+    setState({
+      ...state,
+      cart: state.cart.filter(item => item.id !== payload.id)
+    });
+  };
+
+  return {
+    addToCart,
+    removeFromCart,
+    state
+  };
+};
+
+export default useInitialState;
+```
+
+Y conectamos el hook y el estado a nuestra aplicación en App.jsx:
+
+```jsx
+import React from 'react';
+import { BrowserRouter, Switch, Route } from 'react-router-dom';
+
+import Home from '../containers/Home';
+import Checkout from '../containers/Checkout';
+import Information from '../containers/Information';
+import Payments from '../containers/Payments';
+import Success from '../containers/Success';
+import NotFound from '../containers/NotFound';
+import Layout from '../components/Layout';
+import AppContext from '../context/AppContext';
+import useInitialState from '../hooks/useInitialState';
+
+const App = () => {
+  const initialState = useInitialState();
+  return (
+    <AppContext.Provider value={initialState}>
+      <BrowserRouter>
+        <Layout>
+          <Switch>
+            <Route exact path="/" component={Home} />
+            <Route exact path="/checkout" component={Checkout} />
+            <Route exact path="/checkout/information" component={Information} />
+            <Route exact path="/checkout/payment" component={Payments} />
+            <Route exact path="/checkout/success" component={Success} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </BrowserRouter>
+    </AppContext.Provider>
+  )
+};
+
+export default App;
+
+```
+
+### Implementando useContext en Platzi Conf Merch
+
+Haremos que al presionar el botón de "comprar" el emoji de la canasta aumente de 1 en 1.
+
+Header.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import { Link } from 'react-router-dom';
+import AppContext from '../context/AppContext';
+import '../styles/components/Header.css';
+
+const Header = () =>{
+  const { state } = useContext(AppContext);
+  const { cart } = state;
+
+  return (
+    <header className="Header">
+      <h1 className="Header-title">
+        <Link to="/">
+          PlatziConf Merch
+        </Link>
+      </h1>
+      <div className="Header-checkout">
+        <Link to="/checkout">
+          <i className="fa fa-shopping-basket" aria-hidden="true"/>
+        </Link>
+        {cart.length > 0 && <div className="Header-alert"> {cart.length} </div>}
+      </div>
+    </header>
+  );
+}
+export default Header;
+
+```
+
+Products.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import Product from './Product';
+import AppContext from '../context/AppContext';
+import '../styles/components/Products.css';
+
+const Products = () => {
+  const {state, addToCart} = useContext(AppContext);
+  const { products } = state;
+
+  const handleAddToCart = (product) => () => {
+    addToCart(product)
+  };
+
+  return (
+    <div className="Products">
+      <div className="Products-items">
+        {products.map(product => (
+          <Product key={product.id}
+            product={product}
+            handleAddToCart={handleAddToCart}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+export default Products
+
+```
+
+Product.jsx:
+
+```jsx
+import React from 'react'
+
+const Product = ({product, handleAddToCart}) => (
+    <div className="Products-item">
+      <img src={product.image}  alt={product.title}/>
+      <div className="Product-item-info">
+        <h2> {product.title}
+          <span>$ {product.price}</span>
+        </h2>
+        <p>{product.description}</p>
+      </div>
+      <button type="button"
+        onClick={handleAddToCart(product)}>
+          Comprar
+      </button>
+    </div>
+  )
+
+export default Product
+
+```
+
+App.jsx:
+
+```jsx
+import React from 'react';
+import { BrowserRouter, Switch, Route } from 'react-router-dom';
+
+import Home from '../containers/Home';
+import Checkout from '../containers/Checkout';
+import Information from '../containers/Information';
+import Payments from '../containers/Payments';
+import Success from '../containers/Success';
+import NotFound from '../containers/NotFound';
+import Layout from '../components/Layout';
+import AppContext from '../context/AppContext';
+import useInitialState from '../hooks/useInitialState';
+
+const App = () => {
+  const initialState = useInitialState();
+  return (
+    <AppContext.Provider value={initialState}>
+      <BrowserRouter>
+        <Layout>
+          <Switch>
+            <Route exact path="/" component={Home} />
+            <Route exact path="/checkout" component={Checkout} />
+            <Route exact path="/checkout/information" component={Information} />
+            <Route exact path="/checkout/payment" component={Payments} />
+            <Route exact path="/checkout/success" component={Success} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </BrowserRouter>
+    </AppContext.Provider>
+  );
+};
+
+export default App;
+
+```
+
+### useContext en la página de checkout
+
+Ahora veremos nuestro resumen de pedidos y este mostrará la suma de los precios y podemos eliminar
+los productos de la lista.
+
+Checkout.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import { Link } from 'react-router-dom';
+import AppContext from '../context/AppContext';
+import '../styles/components/Checkout.css';
+
+const Checkout = () => {
+  const { state, removeFromCart } = useContext(AppContext);
+  const { cart } = state;
+
+  const handleRemove = (product, i) => () => {
+    removeFromCart(product, i);
+  }
+
+  const handleSumTotal = () => {
+    const reducer = (accumulator, currentValue) => accumulator + currentValue.price;
+    const sum = cart.reduce(reducer, 0);
+    return sum;
+  }
+
+  return (
+    <div className="Checkout">
+      <div className="Checkout-content">
+        {cart.length > 0 ? <h3>Lista de pedidos:</h3> : <h3>Sin pedidos</h3> }
+        {
+          cart.map((item, i) => (
+            <div className="Checkout-element">
+              <div className="Checkout-element">
+                <h4>{item.title}</h4>
+                <span>{item.price}</span>
+              </div>
+              <button type="button" onClick={handleRemove(item, i)}>
+                <i className="fas fa-trash-alt"/>
+              </button>
+            </div>
+          ))
+        }
+        </div>
+      {cart.length > 0 && (
+        <div className="Checkout-sidebar">
+          <h3>{`Precio Total: $ ${handleSumTotal()}`}</h3>
+          <Link to="checkout/information">
+            <button type="button">Continuar pedido</button>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+export default Checkout;
+
+```
+
+### useRef en la página de checkout
+
+Ahora nuestra información se envía al checkout antes de pagar.
+
+Actualizamos initialState.js:
+
+```js
+export default {
+  cart: [],
+  buyer: [],
+  products: [
+    {
+      'id': '1',
+      'image': 'https://arepa.s3.amazonaws.com/camiseta.png',
+      'title': 'Camiseta',
+      'price': 25,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '3',
+      'image': 'https://arepa.s3.amazonaws.com/mug.png',
+      'title': 'Mug',
+      'price': 10,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '4',
+      'image': 'https://arepa.s3.amazonaws.com/pin.png',
+      'title': 'Pin',
+      'price': 4,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '5',
+      'image': 'https://arepa.s3.amazonaws.com/stickers1.png',
+      'title': 'Stickers',
+      'price': 2,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '6',
+      'image': 'https://arepa.s3.amazonaws.com/stickers2.png',
+      'title': 'Stickers',
+      'price': 2,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '7',
+      'image': 'https://arepa.s3.amazonaws.com/hoodie.png',
+      'title': 'Hoodie',
+      'price': 35,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+  ],
+};
+```
+
+initialState.js:
+
+```js
+import { useState } from "react";
+import initialState from '../initialState';
+
+const useInitialState = () => {
+  const [state, setState] = useState(initialState);
+
+  const addToCart = payload => {
+    setState({
+      ...state,
+      cart: [...state.cart, payload]
+    });
+  };
+
+  const removeFromCart = (payload, indexToRemove) => {
+    setState({
+      ...state,
+      cart: state.cart.filter((_item, currentIndex) => currentIndex !== indexToRemove)
+    });
+  };
+
+  const addToBuyer = payload => {
+    setState({
+      ...state,
+      buyer: [...state.buyer, payload]
+    })
+  }
+
+  return {
+    addToCart,
+    removeFromCart,
+    addToBuyer,
+    state
+  };
+};
+
+export default useInitialState;
+```
+
+Information.jsx:
+
+```jsx
+import React, { useRef, useContext } from 'react';
+import { Link } from 'react-router-dom';
+import AppContext from '../context/AppContext';
+import '../styles/components/Information.css';
+
+const Information = () => {
+  const { state, addToBuyer} = useContext(AppContext);
+  const form = useRef(null);
+
+  const { cart } = state;
+
+  const handleSubmit = () => {
+    const formData = new FormData(form.current);
+    const buyer = {
+      'name': formData.get('name'),
+      'email': formData.get('email'),
+      'address': formData.get('address'),
+      'dpto': formData.get('dpto'),
+      'country': formData.get('country'),
+      'state' : formData.get('state'),
+      'cp' : formData.get('cp'),
+      'phone' : formData.get('phone'),
+    }
+    addToBuyer(buyer);
+  }
+
+  return (
+    <div className="Information">
+      <div className="Information-content">
+        <div className="Information-head">
+          <h2>Información de contacto:</h2>
+        </div>
+        <div className="Information-form">
+          <form ref={form}>
+            <label htmlFor="name">Nombre completo
+              <input type="text" placeholder="Nombre completo" name="name" />
+            </label>
+
+            <label htmlFor="name">Correo electrónico
+              <input type="text" placeholder="Correo electrónico" name="email" />
+            </label>
+
+            <label htmlFor="name">Dirección
+              <input type="text" placeholder="Dirección" name="address" />
+            </label>
+
+            <label htmlFor="name">Ciudad
+              <input type="text" placeholder="Ciudad" name="dpto" />
+            </label>
+
+            <label htmlFor="name">País
+              <input type="text" placeholder="País" name="country" />
+            </label>
+
+            <label htmlFor="name">Estado
+              <input type="text" placeholder="Estado" name="state" />
+            </label>
+
+            <label htmlFor="name">Código Postal
+              <input type="text" placeholder="Código Postal" name="cp" />
+            </label>
+
+            <label htmlFor="name">Teléfono
+              <input type="text" placeholder="Teléfono" name="phone" />
+            </label>
+          </form>
+        </div>
+        <div className="Information-buttons">
+          <div className="Information-back">
+            <Link to="/checkout">
+              Regresar
+            </Link>
+          </div>
+          <div className="Information-next">
+            <button type="button" onClick={handleSubmit}>
+              Pagar
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="Information-sidebar">
+        <h3>Pedido:</h3>
+        { cart.map((item) => (
+          <div className="Information-item" key={item.title}>
+            <div className="Information-element">
+              <h4>{item.title}</h4>
+              <span>${item.price}</span>
+            </div>
+          </div>
+        )) }
+
+      </div>
+    </div>
+  );
+}
+export default Information;
+```
+
+### Integrando third party custom hooks en Platzi Conf Merch
+
+Usamos history para hacer push.
+
+Information.jsx:
+
+```jsx
+import React, { useRef, useContext } from 'react';
+import { Link, useHistory } from 'react-router-dom';
+import AppContext from '../context/AppContext';
+import '../styles/components/Information.css';
+
+const Information = () => {
+  const { state, addToBuyer} = useContext(AppContext);
+  const form = useRef(null);
+  const history = useHistory();
+  const { cart } = state;
+
+  const handleSubmit = () => {
+    const formData = new FormData(form.current);
+    const buyer = {
+      'name': formData.get('name'),
+      'email': formData.get('email'),
+      'address': formData.get('address'),
+      'dpto': formData.get('dpto'),
+      'country': formData.get('country'),
+      'state' : formData.get('state'),
+      'cp' : formData.get('cp'),
+      'phone' : formData.get('phone'),
+    }
+    addToBuyer(buyer);
+    history.push('/checkout/payment');
+  }
+
+  return (
+    <div className="Information">
+      <div className="Information-content">
+        <div className="Information-head">
+          <h2>Información de contacto:</h2>
+        </div>
+        <div className="Information-form">
+          <form ref={form}>
+            <label htmlFor="name">Nombre completo
+              <input type="text" placeholder="Nombre completo" name="name" />
+            </label>
+
+            <label htmlFor="name">Correo electrónico
+              <input type="text" placeholder="Correo electrónico" name="email" />
+            </label>
+
+            <label htmlFor="name">Dirección
+              <input type="text" placeholder="Dirección" name="address" />
+            </label>
+
+            <label htmlFor="name">Ciudad
+              <input type="text" placeholder="Ciudad" name="dpto" />
+            </label>
+
+            <label htmlFor="name">País
+              <input type="text" placeholder="País" name="country" />
+            </label>
+
+            <label htmlFor="name">Estado
+              <input type="text" placeholder="Estado" name="state" />
+            </label>
+
+            <label htmlFor="name">Código Postal
+              <input type="text" placeholder="Código Postal" name="cp" />
+            </label>
+
+            <label htmlFor="name">Teléfono
+              <input type="text" placeholder="Teléfono" name="phone" />
+            </label>
+          </form>
+        </div>
+        <div className="Information-buttons">
+          <div className="Information-back">
+            <Link to="/checkout">
+              Regresar
+            </Link>
+          </div>
+          <div className="Information-next">
+            <button type="button" onClick={handleSubmit}>
+              Pagar
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="Information-sidebar">
+        <h3>Pedido:</h3>
+        { cart.map((item) => (
+          <div className="Information-item" key={item.title}>
+            <div className="Information-element">
+              <h4>{item.title}</h4>
+              <span>${item.price}</span>
+            </div>
+          </div>
+        )) }
+
+      </div>
+    </div>
+  );
+}
+export default Information;
+```
