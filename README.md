@@ -2104,3 +2104,7 @@ export const Map = ({data}) => {
 
 export default Map;
 ```
+
+## Estrategias de deployment profesional
+
+### Continuous integration y continuous delivery con GitHub Actions
