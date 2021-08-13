@@ -1443,3 +1443,664 @@ const Information = () => {
 }
 export default Information;
 ```
+
+## Configura mapas y pagos con PayPal y Google Maps
+
+### Paso a paso para conectar tu aplicación con la API de PayPal
+
+[Artículo en Platzi](https://platzi.com/clases/2118-react-hooks/33506-paso-a-paso-para-conectar-tu-aplicacion-con-la-api/)
+
+### Integración de pagos con la API de PayPal
+
+Instalamos `npm i react-paypal-button-v2 --save`
+
+Modificamos initialState.js:
+
+```js
+export default {
+  cart: [],
+  buyer: [],
+  orders: [],
+  products: [
+    {
+      'id': '1',
+      'image': 'https://arepa.s3.amazonaws.com/camiseta.png',
+      'title': 'Camiseta',
+      'price': 25,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '3',
+      'image': 'https://arepa.s3.amazonaws.com/mug.png',
+      'title': 'Mug',
+      'price': 10,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '4',
+      'image': 'https://arepa.s3.amazonaws.com/pin.png',
+      'title': 'Pin',
+      'price': 4,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '5',
+      'image': 'https://arepa.s3.amazonaws.com/stickers1.png',
+      'title': 'Stickers',
+      'price': 2,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '6',
+      'image': 'https://arepa.s3.amazonaws.com/stickers2.png',
+      'title': 'Stickers',
+      'price': 2,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+    {
+      'id': '7',
+      'image': 'https://arepa.s3.amazonaws.com/hoodie.png',
+      'title': 'Hoodie',
+      'price': 35,
+      'description': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit',
+    },
+  ],
+};
+```
+
+Modificamos useInitialState.js:
+
+```js
+import { useState } from "react";
+import initialState from '../initialState';
+
+const useInitialState = () => {
+  const [state, setState] = useState(initialState);
+
+  const addToCart = payload => {
+    setState({
+      ...state,
+      cart: [...state.cart, payload]
+    });
+  };
+
+  const removeFromCart = (payload, indexToRemove) => {
+    setState({
+      ...state,
+      cart: state.cart.filter((_item, currentIndex) => currentIndex !== indexToRemove)
+    });
+  };
+
+  const addToBuyer = payload => {
+    setState({
+      ...state,
+      buyer: [...state.buyer, payload]
+    })
+  }
+
+  const addNewOrder = payload => {
+    setState({
+      ...state,
+      orders: [...state.orders, payload]
+    });
+  }
+
+  return {
+    addToCart,
+    removeFromCart,
+    addToBuyer,
+    addNewOrder,
+    state
+  };
+};
+
+export default useInitialState;
+```
+
+Creamos la carpeta 'utils' dentro de 'src' y un archivo llamado 'sumTotal.js':
+
+```js
+const handleSumTotal = (cart) => {
+  const reducer = (accumulator, current) => accumulator + current.price;
+  const sum = cart.reduce(reducer, 0);
+  return sum;
+}
+
+export default handleSumTotal;
+```
+
+Checkout.jsx:
+
+```js
+import React, { useContext } from 'react';
+import { Link } from 'react-router-dom';
+import AppContext from '../context/AppContext';
+import handleSumTotal from '../utils/sumTotal';
+import '../styles/components/Checkout.css';
+
+const Checkout = () => {
+  const { state, removeFromCart } = useContext(AppContext);
+  const { cart } = state;
+
+  const handleRemove = (product, i) => () => {
+    removeFromCart(product, i);
+  }
+
+  return (
+    <div className="Checkout">
+      <div className="Checkout-content">
+        {cart.length > 0 ? <h3>Lista de pedidos:</h3> : <h3>Sin pedidos</h3> }
+        {
+          cart.map((item, i) => (
+            <div className="Checkout-element">
+              <div className="Checkout-element">
+                <h4>{item.title}</h4>
+                <span>{item.price}</span>
+              </div>
+              <button type="button" onClick={handleRemove(item, i)}>
+                <i className="fas fa-trash-alt"/>
+              </button>
+            </div>
+          ))
+        }
+        </div>
+      {cart.length > 0 && (
+        <div className="Checkout-sidebar">
+          <h3>{`Precio Total: $ ${handleSumTotal()}`}</h3>
+          <Link to="checkout/information">
+            <button type="button">Continuar pedido</button>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+export default Checkout;
+
+```
+
+Payments.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import { PayPalButton } from 'react-paypal-button-v2';
+import AppContext from '../context/AppContext';
+import handleSumTotal from '../utils/sumTotal';
+import '../styles/components/Payment.css';
+
+const Payment = ({history}) => {
+  const { state, addNewOrder } = useContext(AppContext);
+  const { cart, buyer } = state;
+
+  const paypalOptions = {
+    clientID: 'XDXDXD',
+    intent: 'capture',
+    currency: 'USD',
+  }
+
+  const buttonStyles = {
+    layout: 'vertical',
+    shape: 'rect',
+  }
+
+  const handlePaymentSuccess = (data) => {
+    console.log(data);
+    if (data.status === 'COMPLETED') {
+      const newOrder = {
+        buyer,
+        product: cart,
+        payment: data
+      }
+      addNewOrder(newOrder);
+      history.push('/checkout/success');
+    }
+  }
+
+  return (
+    <div className="Payment">
+      <div className="Payment-content">
+        <h3>Resumen del pedido</h3>
+        {cart.map((item) => (
+          <div className="Payment-item" key={item.title}>
+            <div className="Payment-element">
+              <h4>{item.title}</h4>
+              <span>$ {item.price}</span>
+            </div>
+          </div>
+        ))}
+        <div className="Paymeny-button">
+          <PayPalButton
+            paypayOptions={paypalOptions}
+            buttonStyles={buttonStyles}
+            amount={handleSumTotal(cart)}
+            onPaymentStart={() => console.log('Start payment')}
+            onPaymentSuccess={(data) => handlePaymentSuccess(data)}
+            onPaymentError={(error) => console.error(error)}
+            onPaymentCancel={(data) => console.log(data)}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Payment;
+
+```
+
+### Completando la integración de pagos con la API de PayPal
+
+Por prácticas de seguridad, vamos a usar .env para los datos de la API de PayPal.
+
+Instalamos `npm install --save-dev dotenv-webpack`
+
+Lo agregamos a webpack.config.js:
+
+```js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const Dotenv = require('dotenv-webpack');
+
+module.exports = {
+  entry: './src/index.js',
+  mode: 'development',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'bundle.js',
+    publicPath: '/',
+  },
+  resolve: {
+    extensions: ['.js', '.jsx'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(js|jsx)$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+        },
+      },
+      {
+        test: /\.html$/,
+        use: [
+          {
+            loader: 'html-loader',
+          },
+        ],
+      },
+      {
+        test: /\.css$/,
+        use: [
+          {
+            loader: MiniCssExtractPlugin.loader,
+          },
+          'css-loader',
+        ],
+      },
+    ],
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './public/index.html',
+      filename: './index.html',
+    }),
+    new MiniCssExtractPlugin({
+      filename: 'assets/[name].css',
+    }),
+    new Dotenv()
+  ],
+  devServer: {
+    contentBase: path.join(__dirname, 'dist'),
+    compress: true,
+    historyApiFallback: true,
+    port: 3005,
+  },
+};
+
+```
+
+Creamos el archivo .env en la raíz de nuestro proyecto:
+
+`CLIENT_ID = jejejeje`
+
+Creamos una carpeta config dentro de src y el archivo index.js:
+
+```js
+const config = {
+  // Environments
+  clientIDPaypal: String(process.env.PAYPAL_CLIENT_ID)
+}
+
+export default config
+```
+
+Lo llevamos a Payments.jsx:
+
+```jsx
+import config from '../config';
+
+const paypalOptions = {
+    clientID: config.paypal.clientID,
+    intent: 'capture',
+    currency: 'USD',
+  }
+```
+
+### Paso a paso para conectar tu aplicación con la API de Google Maps
+
+[Artículo en Platzi](https://platzi.com/clases/2118-react-hooks/33651-paso-a-paso-para-conectar-tu-aplicacion-con-la-api/)
+
+### Integración de Google Maps en el mapa de checkout
+
+Instalamos `npm i @react-google-maps/api --save`
+
+Agregamos la Google API Key a las variables de entorno
+
+`GOOGLE_MAP_API_KEY = jeje`
+
+En el archivo index.js de la carpeta config:
+
+```js
+const config = {
+  // Environments
+  clientIDPaypal: String(process.env.PAYPAL_CLIENT_ID),
+  google_map_api_key: String(process.env.GOOGLE_MAP_API_KEY),
+}
+
+export default config
+```
+
+Payments.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import { PayPalButton } from 'react-paypal-button-v2';
+import config from '../config';
+import AppContext from '../context/AppContext';
+import handleSumTotal from '../utils/sumTotal';
+import '../styles/components/Payment.css';
+
+const Payment = ({history}) => {
+  const { state, addNewOrder } = useContext(AppContext);
+  const { cart, buyer } = state;
+
+  const paypalOptions = {
+    clientID: config.clientIDPaypal,
+    intent: 'capture',
+    currency: 'USD',
+  }
+
+  const buttonStyles = {
+    layout: 'vertical',
+    shape: 'rect',
+  }
+
+  const handlePaymentSuccess = (data) => {
+    if (data.status === 'COMPLETED') {
+      const newOrder = {
+        buyer,
+        product: cart,
+        payment: data
+      }
+      addNewOrder(newOrder);
+      history.push('/checkout/success');
+    }
+  }
+
+  return (
+    <div className="Payment">
+      <div className="Payment-content">
+        <h3>Resumen del pedido</h3>
+        {cart.map((item) => (
+          <div className="Payment-item" key={item.title}>
+            <div className="Payment-element">
+              <h4>{item.title}</h4>
+              <span>$ {item.price}</span>
+            </div>
+          </div>
+        ))}
+        <div className="Paymeny-button">
+          <PayPalButton
+            paypayOptions={paypalOptions}
+            buttonStyles={buttonStyles}
+            amount={handleSumTotal(cart)}
+            onPaymentStart={() => console.log('Start payment')}
+            onPaymentSuccess={(data) => handlePaymentSuccess(data)}
+            onPaymentError={(error) => console.error(error)}
+            onPaymentCancel={(data) => console.log(data)}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Payment;
+
+```
+
+Success.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import AppContext from '../context/AppContext';
+import Map from '../components/Map';
+import '../styles/components/Success.css';
+
+const Success = () => {
+  const { state } = useContext(AppContext);
+  const { buyer } = state;
+  return (
+    <div className="Success">
+      <div className="Success-content">
+        <h2>{`${buyer.name}, gracias por tu compra`}</h2>
+        <span>Tu pedido llegará en 3 días a tu dirección</span>
+        <div className="Success-map">
+          <Map />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Success;
+
+```
+
+Map.jsx:
+
+```jsx
+import React from 'react';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import config from '../config';
+
+export const Map = () => {
+  const mapStyle = {
+    height: '50vh',
+    width: '100%',
+  }
+
+  const defaultCenter = {
+    lat: 19.426761,
+    lng: -99.1718796,
+  }
+
+  return (
+    <LoadScript googleMapsApiKey={config.google_map_api_key}>
+      <GoogleMap
+        MapStyle={mapStyle}
+        mapContainerStyle={mapStyle}
+        zoom={9}
+        center={defaultCenter}
+      >
+        <Marker position={defaultCenter} />
+      </GoogleMap>
+    </LoadScript>
+  )
+}
+
+export default Map;
+```
+
+### Creando un Custom Hook para Google Maps
+
+Instalamos `npm i axios --save`
+
+Creamos un nuevo hook: useGoogleAddress.js:
+
+```js
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import config from '../config';
+
+const useGoogleAddress = address => {
+  const [map, setMap] = useState({});
+
+  const API = `https://maps.googleapis.com/maps/api/geocode/json?address=${address}&key=${config.google_map_api_key}`
+
+  useEffect(async() => {
+    const response = await axios.get(API);
+    setMap(response.data.results[0].geometry.location);
+  }, []);
+  return map;
+}
+
+export default useGoogleAddress;
+```
+
+Payment.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import { PayPalButton } from 'react-paypal-button-v2';
+import config from '../config';
+import AppContext from '../context/AppContext';
+import handleSumTotal from '../utils/sumTotal';
+import '../styles/components/Payment.css';
+
+const Payment = ({history}) => {
+  const { state, addNewOrder } = useContext(AppContext);
+  const { cart, buyer } = state;
+
+  const paypalOptions = {
+    clientID: config.clientIDPaypal,
+    intent: 'capture',
+    currency: 'USD',
+  }
+
+  const buttonStyles = {
+    layout: 'vertical',
+    shape: 'rect',
+  }
+
+  const handlePaymentSuccess = (data) => {
+    if (data.status === 'COMPLETED') {
+      const newOrder = {
+        buyer,
+        product: cart,
+        payment: data
+      }
+      addNewOrder(newOrder);
+      history.push('/checkout/success');
+    }
+  }
+
+  return (
+    <div className="Payment">
+      <div className="Payment-content">
+        <h3>Resumen del pedido</h3>
+        {cart.map((item) => (
+          <div className="Payment-item" key={item.title}>
+            <div className="Payment-element">
+              <h4>{item.title}</h4>
+              <span>$ {item.price}</span>
+            </div>
+          </div>
+        ))}
+        <div className="Paymeny-button">
+          <PayPalButton
+            paypayOptions={paypalOptions}
+            buttonStyles={buttonStyles}
+            amount={handleSumTotal(cart)}
+            onPaymentStart={() => console.log('Start payment')}
+            onPaymentSuccess={(data) => handlePaymentSuccess(data)}
+            onPaymentError={(error) => console.error(error)}
+            onPaymentCancel={(data) => console.log(data)}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Payment;
+
+```
+
+Success.jsx:
+
+```jsx
+import React, { useContext } from 'react';
+import AppContext from '../context/AppContext';
+import Map from '../components/Map';
+import useGoogleAddress from '../hooks/useGoogleAddress';
+import '../styles/components/Success.css';
+
+const Success = () => {
+  const { state } = useContext(AppContext);
+  const { buyer } = state;
+  const { location } = useGoogleAddress(buyer[0].address);
+
+  return (
+    <div className="Success">
+      <div className="Success-content">
+        <h2>{`${buyer.name}, gracias por tu compra`}</h2>
+        <span>Tu pedido llegará en 3 días a tu dirección</span>
+        <div className="Success-map">
+          <Map data={location} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Success;
+
+```
+
+Map.jsx:
+
+```jsx
+import React from 'react';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import config from '../config';
+
+export const Map = ({data}) => {
+  const mapStyle = {
+    height: '50vh',
+    width: '100%',
+  }
+
+  const defaultCenter = {
+    lat: data.lat,
+    lng: data.lng,
+  }
+
+  return (
+    <LoadScript googleMapsApiKey={config.google_map_api_key}>
+      <GoogleMap
+        MapStyle={mapStyle}
+        mapContainerStyle={mapStyle}
+        zoom={9}
+        center={defaultCenter}
+      >
+        <Marker position={defaultCenter} />
+      </GoogleMap>
+    </LoadScript>
+  )
+}
+
+export default Map;
+```
